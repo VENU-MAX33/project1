@@ -6,10 +6,16 @@
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
-const API_BASE = "http://127.0.0.1:5000";
+// Use relative URL for API - will work both locally and when deployed
+// If deployed on same domain, relative URL works. If on different domain,
+// this should be configured via build env or backend proxy
+const API_BASE = ""; // Empty string makes it relative to current origin
 
 // Store last prediction for saving
 let lastPrediction = null;
+
+// Track API connection status
+let apiAvailable = true;
 
 // ---------------------------------------------------------------------------
 // AOS Init
@@ -26,6 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initLottie();
   initForm();
   initNavbar();
+  
+  // Initial API health check
+  checkApiHealth();
 });
 
 // ---------------------------------------------------------------------------
@@ -95,7 +104,7 @@ function initLottie() {
 
   // Create an SVG-based animated shield icon since we don't have an external Lottie file
   container.innerHTML = `
-    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+    <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;" role="img" aria-label="Security shield animation">
       <defs>
         <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" style="stop-color:#6c5ce7;stop-opacity:1" />
@@ -167,6 +176,64 @@ function initNavbar() {
 }
 
 // ---------------------------------------------------------------------------
+// API Health Check
+// ---------------------------------------------------------------------------
+async function checkApiHealth() {
+  try {
+    const res = await fetch(`${API_BASE}/health`, { timeout: 5000 });
+    if (res.ok) {
+      const data = await res.json();
+      apiAvailable = true;
+      // Update UI to show API is available
+      const offlineBanner = document.getElementById("offlineBanner");
+      if (offlineBanner) {
+        offlineBanner.style.display = "none";
+      }
+    } else {
+      throw new Error(`Health check failed: ${res.status}`);
+    }
+  } catch (err) {
+    apiAvailable = false;
+    console.warn("API health check failed:", err);
+    // Show offline banner
+    showOfflineBanner();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Offline Banner
+// ---------------------------------------------------------------------------
+function showOfflineBanner() {
+  // Remove existing banner if any
+  const existingBanner = document.getElementById("offlineBanner");
+  if (existingBanner) {
+    existingBanner.remove();
+  }
+
+  const banner = document.createElement("div");
+  banner.id = "offlineBanner";
+  banner.className = "offline-banner";
+  banner.setAttribute("role", "alert");
+  banner.innerHTML = `
+    <div class="offline-banner-content">
+      <span class="offline-banner-icon">⚠️</span>
+      <span class="offline-banner-message">
+        Backend server appears to be offline. Some features may not work.
+        <a href="#" class="offline-banner-retry" id="offlineRetryLink">Retry connection</a>
+      </span>
+    </div>
+  `;
+
+  document.body.insertBefore(banner, document.body.firstChild);
+
+  // Add retry functionality
+  document.getElementById("offlineRetryLink").addEventListener("click", (e) => {
+    e.preventDefault();
+    checkApiHealth();
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Transaction Form
 // ---------------------------------------------------------------------------
 function initForm() {
@@ -179,9 +246,22 @@ function initForm() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Analyze Transaction
+// ---------------------------------------------------------------------------
 async function analyzTransaction() {
+  // Check API availability first
+  if (!apiAvailable) {
+    await checkApiHealth();
+    if (!apiAvailable) {
+      showOfflineBanner();
+      return;
+    }
+  }
+
   const overlay = document.getElementById("loadingOverlay");
   const resultContainer = document.getElementById("resultContainer");
+  const analyzeBtn = document.getElementById("analyzeBtn");
 
   const data = {
     sender_upi: document.getElementById("senderUpi").value,
@@ -192,16 +272,28 @@ async function analyzTransaction() {
     hour: parseInt(document.getElementById("txnHour").value),
   };
 
+  // Validate input
+  if (!validateTransactionData(data)) {
+    return;
+  }
+
   // Show loading
   overlay.classList.add("show");
   resultContainer.classList.remove("show");
+  analyzeBtn.disabled = true;
+  analyzeBtn.innerHTML = '<span class="btn-loading">🔄 Analyzing...</span>';
 
   try {
     const res = await fetch(`${API_BASE}/predict_fraud`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      timeout: 10000
     });
+
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
 
     const result = await res.json();
 
@@ -211,11 +303,147 @@ async function analyzTransaction() {
     overlay.classList.remove("show");
     displayResult(result);
     lastPrediction = result;
+    
+    // Reset button
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = '🔍 Analyze Transaction';
+    
   } catch (err) {
     overlay.classList.remove("show");
-    alert("⚠️ Could not connect to the backend. Make sure the Flask server is running on port 5000.");
-    console.error(err);
+    analyzeBtn.disabled = false;
+    analyzeBtn.innerHTML = '🔍 Analyze Transaction';
+    
+    console.error("Transaction analysis failed:", err);
+    
+    // Check if it's a network error
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      apiAvailable = false;
+      showOfflineBanner();
+      showErrorMessage("Unable to connect to the server. Please check your connection and try again.");
+    } else {
+      showErrorMessage("An error occurred while analyzing the transaction. Please try again.");
+    }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Validate Transaction Data
+// ---------------------------------------------------------------------------
+function validateTransactionData(data) {
+  // Clear previous errors
+  clearFormErrors();
+  
+  let isValid = true;
+  
+  // Validate UPI IDs (basic format)
+  const upiPattern = /^[^@\s]+@[^@\s]+$/;
+  if (!upiPattern.test(data.sender_upi)) {
+    showFormError("senderUpi", "Please enter a valid sender UPI ID (e.g., name@bank)");
+    isValid = false;
+  }
+  
+  if (!upiPattern.test(data.receiver_upi)) {
+    showFormError("receiverUpi", "Please enter a valid receiver UPI ID (e.g., name@bank)");
+    isValid = false;
+  }
+  
+  // Validate amount
+  if (isNaN(data.amount) || data.amount <= 0) {
+    showFormError("amount", "Please enter a valid amount greater than zero");
+    isValid = false;
+  }
+  
+  // Validate location
+  if (!data.location) {
+    showFormError("location", "Please select a location");
+    isValid = false;
+  }
+  
+  // Validate device type
+  if (!data.device_type) {
+    showFormError("deviceType", "Please select a device type");
+    isValid = false;
+  }
+  
+  // Validate hour
+  if (isNaN(data.hour) || data.hour < 0 || data.hour > 23) {
+    showFormError("txnHour", "Please enter a valid hour (0-23)");
+    isValid = false;
+  }
+  
+  return isValid;
+}
+
+// ---------------------------------------------------------------------------
+// Show Form Error
+// ---------------------------------------------------------------------------
+function showFormError(fieldId, message) {
+  const field = document.getElementById(fieldId);
+  const formGroup = field.parentElement;
+  
+  // Remove existing error if any
+  const existingError = formGroup.querySelector(".form-error");
+  if (existingError) {
+    existingError.remove();
+  }
+  
+  // Add error class to field
+  field.classList.add("field-error");
+  
+  // Create error message
+  const errorElement = document.createElement("small");
+  errorElement.className = "form-error";
+  errorElement.textContent = message;
+  errorElement.setAttribute("aria-live", "assertive");
+  
+  // Insert after field
+  formGroup.appendChild(errorElement);
+  
+  // Focus on field
+  field.focus();
+}
+
+// ---------------------------------------------------------------------------
+// Clear Form Errors
+// ---------------------------------------------------------------------------
+function clearFormErrors() {
+  const formGroups = document.querySelectorAll(".form-group");
+  formGroups.forEach(group => {
+    const error = group.querySelector(".form-error");
+    if (error) {
+      error.remove();
+    }
+    
+    const field = group.querySelector("input, select");
+    if (field) {
+      field.classList.remove("field-error");
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Show Error Message
+// ---------------------------------------------------------------------------
+function showErrorMessage(message) {
+  // Create toast-like error message
+  const toast = document.createElement("div");
+  toast.className = "error-toast";
+  toast.setAttribute("role", "alert");
+  toast.setAttribute("aria-live", "assertive");
+  toast.innerHTML = `
+    <span class="error-toast-icon">❌</span>
+    <span class="error-toast-message">${message}</span>
+  `;
+  
+  document.body.appendChild(toast);
+  
+  // Remove after timeout
+  setTimeout(() => {
+    toast.classList.add("error-toast-hide");
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 5000);
 }
 
 // ---------------------------------------------------------------------------
@@ -234,8 +462,11 @@ function displayResult(result) {
   const isFraud = result.prediction === "Fraudulent";
 
   icon.textContent = isFraud ? "🚨" : "✅";
+  icon.setAttribute("aria-label", isFraud ? "Fraudulent transaction alert" : "Safe transaction confirmation");
+  
   title.textContent = isFraud ? "FRAUDULENT TRANSACTION" : "SAFE TRANSACTION";
   title.className = `result-title ${isFraud ? "fraud" : "safe"}`;
+  
   subtitle.textContent = isFraud
     ? "This transaction has been flagged as potentially fraudulent."
     : "This transaction appears to be legitimate.";
@@ -244,9 +475,14 @@ function displayResult(result) {
   const prob = result.fraud_probability;
   fill.style.width = "0%";
   fill.className = `probability-fill ${isFraud ? "fraud" : "safe"}`;
+  fill.setAttribute("aria-valuemin", "0");
+  fill.setAttribute("aria-valuemax", "100");
+  fill.setAttribute("aria-valuenow", prob.toString());
+  
   setTimeout(() => {
     fill.style.width = `${prob}%`;
   }, 100);
+  
   probText.textContent = `Fraud Probability: ${prob}% | Safe Probability: ${result.safe_probability}%`;
 
   // Details grid
@@ -283,13 +519,30 @@ function displayResult(result) {
 
   // Scroll to result
   container.scrollIntoView({ behavior: "smooth", block: "center" });
+  
+  // Focus on result title for screen readers
+  title.setAttribute("tabindex", "-1");
+  title.focus();
 }
 
 // ---------------------------------------------------------------------------
 // Save Transaction
 // ---------------------------------------------------------------------------
 async function saveTransaction() {
-  if (!lastPrediction) return;
+  if (!lastPrediction) {
+    showErrorMessage("No transaction to save. Please analyze a transaction first.");
+    return;
+  }
+
+  // Check API availability
+  if (!apiAvailable) {
+    await checkApiHealth();
+    if (!apiAvailable) {
+      showOfflineBanner();
+      showErrorMessage("Unable to save transaction. Backend server is offline.");
+      return;
+    }
+  }
 
   const data = {
     ...lastPrediction.details,
@@ -298,26 +551,46 @@ async function saveTransaction() {
     timestamp: new Date().toISOString(),
   };
 
+  const saveBtn = document.getElementById("saveBtn");
+  
   try {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="btn-loading">💾 Saving...</span>';
+
     const res = await fetch(`${API_BASE}/store_transaction`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
+      timeout: 10000
     });
+
+    if (!res.ok) {
+      throw new Error(`Save failed: ${res.status}`);
+    }
 
     const result = await res.json();
 
     if (result.status) {
-      const saveBtn = document.getElementById("saveBtn");
       saveBtn.textContent = "✅ Saved!";
-      saveBtn.disabled = true;
       setTimeout(() => {
         saveBtn.textContent = "💾 Save to Database";
         saveBtn.disabled = false;
       }, 3000);
+    } else {
+      throw new Error("Save operation failed");
     }
   } catch (err) {
-    alert("⚠️ Could not save. Is the backend running?");
-    console.error(err);
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = '💾 Save to Database';
+    
+    console.error("Save transaction failed:", err);
+    
+    if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      apiAvailable = false;
+      showOfflineBanner();
+      showErrorMessage("Unable to connect to the server. Please check your connection and try again.");
+    } else {
+      showErrorMessage("Failed to save transaction. Please try again.");
+    }
   }
 }

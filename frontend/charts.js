@@ -3,7 +3,7 @@
    Uses Chart.js for visualizations
    ============================================================ */
 
-const API_BASE = "http://127.0.0.1:5000";
+const API_BASE = ""; // Empty string makes it relative to current origin
 
 // Chart.js global defaults for dark theme
 Chart.defaults.color = "#8b8b9e";
@@ -25,12 +25,23 @@ async function loadDashboard() {
   let transactions = [];
 
   try {
-    const res = await fetch(`${API_BASE}/transactions`);
+    const res = await fetch(`${API_BASE}/transactions`, { timeout: 8000 });
+    
+    if (!res.ok) {
+      throw new Error(`Server error: ${res.status}`);
+    }
+    
     const data = await res.json();
     transactions = data.transactions || [];
+    
+    // Reset offline state if we successfully connected
+    updateConnectionStatus(true);
   } catch (err) {
-    console.warn("Backend not available, loading sample data for demo.");
+    console.warn("Backend not available, loading sample data for demo.", err);
     transactions = generateSampleData();
+    
+    // Update connection status
+    updateConnectionStatus(false);
   }
 
   updateStats(transactions);
@@ -41,9 +52,26 @@ async function loadDashboard() {
   renderTable(transactions);
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
+// Connection Status UI
+// -------------------------------------------------------------------------//
+function updateConnectionStatus(isOnline) {
+  const statusIndicator = document.getElementById("connectionStatus");
+  const offlineBanner = document.getElementById("offlineBannerCharts");
+  
+  if (statusIndicator) {
+    statusIndicator.textContent = isOnline ? "● Online" : "● Offline";
+    statusIndicator.className = isOnline ? "status-online" : "status-offline";
+  }
+  
+  if (offlineBanner) {
+    offlineBanner.style.display = isOnline ? "none" : "block";
+  }
+}
+
+// -------------------------------------------------------------------------//
 // Sample data (for when backend is offline)
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function generateSampleData() {
   const cities = ["Mumbai", "Delhi", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune"];
   const devices = ["Mobile", "Desktop", "Tablet"];
@@ -65,9 +93,9 @@ function generateSampleData() {
   return data;
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Stats
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function updateStats(txns) {
   const total = txns.length;
   const fraud = txns.filter((t) => t.prediction === "Fraudulent").length;
@@ -92,9 +120,9 @@ function animateCounter(id, target) {
   }, 30);
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Chart 1 — Fraud vs Safe (Doughnut)
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function renderFraudSafeChart(txns) {
   const safe = txns.filter((t) => t.prediction === "Safe").length;
   const fraud = txns.filter((t) => t.prediction === "Fraudulent").length;
@@ -126,9 +154,9 @@ function renderFraudSafeChart(txns) {
   });
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Chart 2 — Transaction Volume by Hour (Bar)
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function renderVolumeChart(txns) {
   const hourCounts = new Array(24).fill(0);
   txns.forEach((t) => {
@@ -163,9 +191,9 @@ function renderVolumeChart(txns) {
   });
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Chart 3 — Amount Distribution (Line)
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function renderAmountChart(txns) {
   const sorted = [...txns].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -211,9 +239,9 @@ function renderAmountChart(txns) {
   });
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Chart 4 — Fraud by Location (Horizontal Bar)
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function renderLocationChart(txns) {
   const fraudByCity = {};
   txns
@@ -255,9 +283,9 @@ function renderLocationChart(txns) {
   });
 }
 
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 // Transaction History Table
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------------//
 function renderTable(txns) {
   const tbody = document.getElementById("txnTableBody");
   const emptyState = document.getElementById("emptyState");
@@ -285,7 +313,6 @@ function renderTable(txns) {
       <td>${t.fraud_probability || 0}%</td>
       <td>${t.timestamp ? new Date(t.timestamp).toLocaleDateString("en-IN") : "—"}</td>
     </tr>
-  `
-    )
+  `)
     .join("");
 }

@@ -13,120 +13,160 @@
   <!-- AOS -->
   <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
 </head>
+
 <body>
+  <!-- Skip to content link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- =============== Loading Overlay =============== -->
+  <div class="loading-overlay" id="loadingOverlayDashboard" aria-live="polite" aria-atomic="true">
+    <div class="loading-spinner" aria-label="Loading spinner"></div>
+    <p>Loading dashboard data...</p>
+  </div>
+
+  <!-- =============== Error Banner =============== -->
+  <div class="error-banner" id="errorBannerDashboard" role="alert" aria-live="assertive">
+    <span class="error-banner-icon">❌</span>
+    <span class="error-banner-message"></span>
+    <button class="error-banner-retry" id="retryBtnDashboard">Retry</button>
+  </div>
+
+  <!-- =============== Sample Data Banner =============== -->
+  <div class="sample-banner" id="sampleBannerDashboard" aria-live="polite">
+    <span class="sample-banner-icon">ℹ️</span>
+    <span class="sample-banner-message">Using sample data because the backend is offline.</span>
+  </div>
 
   <!-- =============== Navbar =============== -->
-  <nav class="navbar" id="navbar">
+  <nav class="navbar" id="navbar" aria-label="Primary navigation">
     <div class="container">
-      <div class="logo"><a href="index.html" style="color:inherit;text-decoration:none;">UPI<span>Guard</span></a></div>
+      <div class="logo">
+        <a href="index.html" style="color:inherit;text-decoration:none;">
+          UPI<span>Guard</span>
+        </a>
+      </div>
       <ul class="nav-links">
-        <li><a href="index.html">Home</a></li>
-        <li><a href="index.html#simulate">Simulate</a></li>
-        <li><a href="#" class="nav-cta" style="pointer-events:none; opacity:0.7;">Dashboard</a></li>
+        <li><a href="index.html" aria-label="Go to home page">Home</a></li>
+        <li><a href="index.html#simulate" aria-label="Go to transaction simulation">Simulate</a></li>
+        <li>
+          <a href="#" class="nav-cta" aria-current="page" aria-label="Dashboard page, current location">
+            Dashboard
+          </a>
+        </li>
       </ul>
     </div>
   </nav>
 
   <!-- =============== Main Content =============== -->
-  <main style="padding-top: 100px; min-height: 100vh;">
+  <main id="main-content" style="padding-top: 100px; min-height: 100vh;">
     <div class="container">
-
-      <h1 class="section-title" data-aos="fade-up" style="margin-bottom:4px;">Analytics Dashboard</h1>
+      <h1 class="section-title" id="dashboard-heading" data-aos="fade-up" style="margin-bottom:4px;">
+        Analytics Dashboard
+      </h1>
       <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">
         Real-time fraud detection metrics & transaction history
       </p>
 
       <!-- ---- Stats Row ---- -->
-      <div class="stats-row" data-aos="fade-up" data-aos-delay="150">
-        <div class="glass-card stat-card">
-          <div class="stat-icon total">📦</div>
+      <div class="stats-row" data-aos="fade-up" data-aos-delay="150" aria-labelledby="stats-heading">
+        <h2 id="stats-heading" class="visually-hidden">Transaction Statistics</h2>
+        
+        <div class="glass-card stat-card" role="group" aria-labelledby="statTotalLabel">
+          <div class="stat-icon total" aria-hidden="true">📦</div>
           <div class="stat-info">
-            <h3 id="statTotal">0</h3>
-            <p>Total Transactions</p>
+            <h3 id="statTotal" class="stat-value">0</h3>
+            <p id="statTotalLabel" class="stat-label">Total Transactions</p>
           </div>
         </div>
 
-        <div class="glass-card stat-card">
-          <div class="stat-icon fraud">🚨</div>
+        <div class="glass-card stat-card" role="group" aria-labelledby="statFraudLabel">
+          <div class="stat-icon fraud" aria-hidden="true">🚨</div>
           <div class="stat-info">
-            <h3 id="statFraud">0</h3>
-            <p>Fraud Detected</p>
+            <h3 id="statFraud" class="stat-value">0</h3>
+            <p id="statFraudLabel" class="stat-label">Fraud Detected</p>
           </div>
         </div>
 
-        <div class="glass-card stat-card">
-          <div class="stat-icon rate">📈</div>
+        <div class="glass-card stat-card" role="group" aria-labelledby="statRateLabel">
+          <div class="stat-icon rate" aria-hidden="true">📈</div>
           <div class="stat-info">
-            <h3 id="statRate">0%</h3>
-            <p>Fraud Rate</p>
+            <h3 id="statRate" class="stat-value">0%</h3>
+            <p id="statRateLabel" class="stat-label">Fraud Rate</p>
           </div>
         </div>
       </div>
 
       <!-- ---- Charts ---- -->
-      <div class="charts-grid" data-aos="fade-up" data-aos-delay="200">
-        <div class="glass-card chart-card">
-          <h3>Fraud vs Safe Transactions</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartFraudSafe"></canvas>
+      <section aria-labelledby="charts-heading">
+        <h2 id="charts-heading" class="section-title visually-hidden">Transaction Analytics Charts</h2>
+        
+        <div class="charts-grid" data-aos="fade-up" data-aos-delay="200" aria-label="First set of transaction charts">
+          <div class="glass-card chart-card" aria-labelledby="chartFraudSafeTitle">
+            <h3 id="chartFraudSafeTitle">Fraud vs Safe Transactions</h3>
+            <div class="chart-wrapper" role="img" aria-label="Pie chart showing fraud vs safe transactions distribution">
+              <canvas id="chartFraudSafe"></canvas>
+            </div>
+          </div>
+
+          <div class="glass-card chart-card" aria-labelledby="chartVolumeTitle">
+            <h3 id="chartVolumeTitle">Transaction Volume by Hour</h3>
+            <div class="chart-wrapper" role="img" aria-label="Bar chart showing transaction volume by hour of day">
+              <canvas id="chartVolume"></canvas>
+            </div>
           </div>
         </div>
 
-        <div class="glass-card chart-card">
-          <h3>Transaction Volume by Hour</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartVolume"></canvas>
+        <div class="charts-grid" data-aos="fade-up" data-aos-delay="250" aria-label="Second set of transaction charts">
+          <div class="glass-card chart-card" aria-labelledby="chartAmountTitle">
+            <h3 id="chartAmountTitle">Amount Distribution</h3>
+            <div class="chart-wrapper" role="img" aria-label="Histogram showing distribution of transaction amounts">
+              <canvas id="chartAmount"></canvas>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="charts-grid" data-aos="fade-up" data-aos-delay="250">
-        <div class="glass-card chart-card">
-          <h3>Amount Distribution</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartAmount"></canvas>
+          <div class="glass-card chart-card" aria-labelledby="chartLocationTitle">
+            <h3 id="chartLocationTitle">Fraud by Location</h3>
+            <div class="chart-wrapper" role="img" aria-label="Bar chart showing fraud incidents by geographical location">
+              <canvas id="chartLocation"></canvas>
+            </div>
           </div>
         </div>
-
-        <div class="glass-card chart-card">
-          <h3>Fraud by Location</h3>
-          <div class="chart-wrapper">
-            <canvas id="chartLocation"></canvas>
-          </div>
-        </div>
-      </div>
+      </section>
 
       <!-- ---- Transaction History ---- -->
-      <div class="glass-card table-card" data-aos="fade-up" data-aos-delay="300" style="margin-bottom:60px;">
-        <h3>Transaction History</h3>
-        <table class="txn-table" id="txnTable">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Sender</th>
-              <th>Receiver</th>
-              <th>Amount</th>
-              <th>Location</th>
-              <th>Prediction</th>
-              <th>Probability</th>
-              <th>Date</th>
-            </tr>
-          </thead>
-          <tbody id="txnTableBody">
-            <!-- Populated by charts.js -->
-          </tbody>
-        </table>
-        <div class="empty-state" id="emptyState">
-          <div class="icon">📭</div>
-          <p>No transactions yet. Go to <a href="index.html#simulate">Simulate</a> to create one.</p>
+      <section aria-labelledby="history-heading">
+        <h2 id="history-heading" class="section-title">Transaction History</h2>
+        
+        <div class="glass-card table-card" data-aos="fade-up" data-aos-delay="300" style="margin-bottom:60px;">
+          <table class="txn-table" id="txnTable" aria-label="Transaction history table">
+            <caption>List of analyzed transactions with fraud detection results</caption>
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Sender</th>
+                <th scope="col">Receiver</th>
+                <th scope="col">Amount</th>
+                <th scope="col">Location</th>
+                <th scope="col">Prediction</th>
+                <th scope="col">Probability</th>
+                <th scope="col">Date</th>
+              </tr>
+            </thead>
+            <tbody id="txnTableBody">
+              <!-- Populated by charts.js -->
+            </tbody>
+          </table>
+          <div class="empty-state" id="emptyState" role="status" aria-live="polite">
+            <div class="icon" aria-hidden="true">📭</div>
+            <p>No transactions yet. Go to <a href="index.html#simulate" aria-label="Go to transaction simulation page">Simulate</a> to create one.</p>
+          </div>
         </div>
-      </div>
-
+      </section>
     </div>
   </main>
 
   <!-- =============== Footer =============== -->
-  <footer class="footer">
+  <footer class="footer" aria-label="Footer">
     <div class="container">
       <p>&copy; 2026 <strong>UPIGuard</strong> — AI-Powered UPI Fraud Detection System</p>
     </div>

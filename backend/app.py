@@ -18,6 +18,16 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+# Appwrite imports
+try:
+    from appwrite.client import Client
+    from appwrite.services.databases import Databases as AppwriteDatabases
+    from appwrite.id import ID
+except ImportError:
+    Client = None
+    AppwriteDatabases = None
+    ID = None
+
 # ---------------------------------------------------------------------------
 # Load .env file if it exists
 # ---------------------------------------------------------------------------
@@ -34,22 +44,47 @@ if os.path.exists(env_path):
 # App setup
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
-CORS(app)  # allow frontend on different origin
+# Configure CORS more restrictively for production
+# In production, replace with actual frontend domain
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:5000", "https://*.vercel.app"])
+
+# Add security headers
+@app.after_request
+def add_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;"
+    return response
 
 # ---------------------------------------------------------------------------
 # Load ML model
 # ---------------------------------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "fraud_model.pkl")
 
-with open(MODEL_PATH, "rb") as f:
-    bundle = pickle.load(f)
+try:
+    with open(MODEL_PATH, "rb") as f:
+        bundle = pickle.load(f)
 
-model       = bundle["model"]
-le_location = bundle["le_location"]
-le_device   = bundle["le_device"]
-cities      = bundle["cities"]
-devices     = bundle["devices"]
-feature_names = bundle["features"]  # ["amount", "location_enc", "device_type_enc", "hour"]
+    model       = bundle["model"]
+    le_location = bundle["le_location"]
+    le_device   = bundle["le_device"]
+    cities      = bundle["cities"]
+    devices     = bundle["devices"]
+    feature_names = bundle["features"]  # ["amount", "location_enc", "device_type_enc", "hour"]
+    model_loaded = True
+    print("[OK]  ML model loaded successfully")
+except Exception as e:
+    print(f"[ERROR]  Failed to load ML model: {e}")
+    model_loaded = False
+    # Set default values to prevent crashes
+    model = None
+    le_location = None
+    le_device = None
+    cities = []
+    devices = []
+    feature_names = ["amount", "location_enc", "device_type_enc", "hour"]
 
 # ---------------------------------------------------------------------------
 # Appwrite setup  (reads from environment variables)
@@ -63,23 +98,23 @@ APPWRITE_COLLECTION = os.getenv("APPWRITE_COLLECTION_ID", "")
 appwrite_ready = all([
     APPWRITE_ENDPOINT, APPWRITE_PROJECT_ID,
     APPWRITE_API_KEY, APPWRITE_DB_ID, APPWRITE_COLLECTION
-])
+]) and (Client is not None and AppwriteDatabases is not None and ID is not None)
 
 databases = None
 
 if appwrite_ready:
     try:
-        from appwrite.client import Client
-        from appwrite.services.databases import Databases
-        from appwrite.id import ID
+        if Client is not None and AppwriteDatabases is not None:
+            client = Client()
+            client.set_endpoint(APPWRITE_ENDPOINT)
+            client.set_project(APPWRITE_PROJECT_ID)
+            client.set_key(APPWRITE_API_KEY)
 
-        client = Client()
-        client.set_endpoint(APPWRITE_ENDPOINT)
-        client.set_project(APPWRITE_PROJECT_ID)
-        client.set_key(APPWRITE_API_KEY)
-
-        databases = Databases(client)
-        print("✅  Appwrite connected")
+            databases = AppwriteDatabases(client)
+            print("[OK]  Appwrite connected")
+        else:
+            print("[WARN]  Appwrite imports not available")
+            databases = None
     except Exception as e:
         print(f"⚠️  Appwrite init failed: {e}")
         databases = None
@@ -95,14 +130,17 @@ local_transactions = []
 
 def encode_transaction(data):
     """Turn raw form data into a DataFrame the model expects (with feature names)."""
+    if not model_loaded or model is None:
+        raise Exception("ML model not loaded")
+        
     location = data.get("location", "Mumbai")
     device   = data.get("device_type", "Mobile")
     amount   = float(data.get("amount", 0))
     hour     = int(data.get("hour", 12))
 
     # Handle unseen labels gracefully
-    loc_enc = le_location.transform([location])[0] if location in cities else 0
-    dev_enc = le_device.transform([device])[0]   if device in devices else 0
+    loc_enc = le_location.transform([location])[0] if le_location is not None and location in cities else 0
+    dev_enc = le_device.transform([device])[0]   if le_device is not None and device in devices else 0
 
     return pd.DataFrame([[amount, loc_enc, dev_enc, hour]], columns=feature_names)
 
@@ -115,6 +153,10 @@ def encode_transaction(data):
 def predict_fraud():
     """Analyze a single transaction and return prediction + probability."""
     data = request.get_json(force=True)
+
+    # Check if model is loaded
+    if not model_loaded or model is None:
+        return jsonify({"error": "ML model not available"}), 503
 
     try:
         features    = encode_transaction(data)
@@ -156,9 +198,8 @@ def store_transaction():
         "timestamp":    data.get("timestamp", datetime.datetime.now().isoformat()),
     }
 
-    if databases:
+    if databases is not None and ID is not None:
         try:
-            from appwrite.id import ID
             result = databases.create_document(
                 database_id=APPWRITE_DB_ID,
                 collection_id=APPWRITE_COLLECTION,
@@ -179,7 +220,7 @@ def store_transaction():
 def get_transactions():
     """Return all stored transactions."""
 
-    if databases:
+    if databases is not None:
         try:
             result = databases.list_documents(
                 database_id=APPWRITE_DB_ID,
@@ -205,5 +246,6 @@ def health():
 # Run
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    print("\n🚀  UPI Fraud Detection API running on http://127.0.0.1:5000\n")
-    app.run(debug=True, port=5000)
+    print("\n[START]  UPI Fraud Detection API running on http://127.0.0.1:5000\n")
+    # Disable debug mode for production
+    app.run(debug=False, port=5000)
