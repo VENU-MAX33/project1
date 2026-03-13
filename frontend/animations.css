@@ -1,0 +1,128 @@
+/* ============================================================
+   UPI Fraud Detection — Animation Stylesheet
+   Keyframes and animation utilities
+   ============================================================ */
+
+/* ---------- Fade-in from bottom ---------- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Fade-in from left ---------- */
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------- Fade-in from right ---------- */
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ---------- Scale pop ---------- */
+@keyframes scalePop {
+  0%   { opacity: 0; transform: scale(0.8); }
+  60%  { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ---------- Float (up-down) ---------- */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+
+/* ---------- Pulse glow ---------- */
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.4); }
+  50%      { box-shadow: 0 0 20px 6px rgba(108, 92, 231, 0.15); }
+}
+
+/* ---------- Shimmer ---------- */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.06) 50%,
+    rgba(255,255,255,0) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ---------- Gradient shift ---------- */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animated-gradient {
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* ---------- Typewriter cursor blink ---------- */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ---------- Ripple ---------- */
+@keyframes ripple {
+  0%   { transform: scale(1);   opacity: 0.4; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+.btn-primary { position: relative; overflow: hidden; }
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.3s, transform 0.5s;
+}
+.btn-primary:active::before {
+  opacity: 1;
+  transform: scale(2.5);
+  transition: opacity 0s, transform 0s;
+}
+
+/* ---------- Result card entrance ---------- */
+.result-container.show .result-card {
+  animation: scalePop 0.5s ease forwards;
+}
+
+/* ---------- Stat counter rise ---------- */
+.stat-card {
+  animation: fadeInUp 0.6s ease both;
+}
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.2s; }
+
+/* ---------- Floating hero visual ---------- */
+.hero-animation {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* ---------- Pulsing CTA button ---------- */
+.btn-primary {
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+/* ---------- Table row hover slide ---------- */
+.txn-table tbody tr {
+  transition: transform 0.2s ease, background 0.3s ease;
+}
+.txn-table tbody tr:hover {
+  transform: translateX(4px);
+}

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — UPI Fraud Detection</title>
+  <meta name="description" content="Analytics dashboard for UPI fraud detection. View transaction stats, fraud rates, and historical data." />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="animations.css" />
+
+  <!-- AOS -->
+  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css" />
+</head>
+<body>
+
+  <!-- =============== Navbar =============== -->
+  <nav class="navbar" id="navbar">
+    <div class="container">
+      <div class="logo"><a href="index.html" style="color:inherit;text-decoration:none;">UPI<span>Guard</span></a></div>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="index.html#simulate">Simulate</a></li>
+        <li><a href="#" class="nav-cta" style="pointer-events:none; opacity:0.7;">Dashboard</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- =============== Main Content =============== -->
+  <main style="padding-top: 100px; min-height: 100vh;">
+    <div class="container">
+
+      <h1 class="section-title" data-aos="fade-up" style="margin-bottom:4px;">Analytics Dashboard</h1>
+      <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">
+        Real-time fraud detection metrics & transaction history
+      </p>
+
+      <!-- ---- Stats Row ---- -->
+      <div class="stats-row" data-aos="fade-up" data-aos-delay="150">
+        <div class="glass-card stat-card">
+          <div class="stat-icon total">📦</div>
+          <div class="stat-info">
+            <h3 id="statTotal">0</h3>
+            <p>Total Transactions</p>
+          </div>
+        </div>
+
+        <div class="glass-card stat-card">
+          <div class="stat-icon fraud">🚨</div>
+          <div class="stat-info">
+            <h3 id="statFraud">0</h3>
+            <p>Fraud Detected</p>
+          </div>
+        </div>
+
+        <div class="glass-card stat-card">
+          <div class="stat-icon rate">📈</div>
+          <div class="stat-info">
+            <h3 id="statRate">0%</h3>
+            <p>Fraud Rate</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Charts ---- -->
+      <div class="charts-grid" data-aos="fade-up" data-aos-delay="200">
+        <div class="glass-card chart-card">
+          <h3>Fraud vs Safe Transactions</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartFraudSafe"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card chart-card">
+          <h3>Transaction Volume by Hour</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartVolume"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid" data-aos="fade-up" data-aos-delay="250">
+        <div class="glass-card chart-card">
+          <h3>Amount Distribution</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartAmount"></canvas>
+          </div>
+        </div>
+
+        <div class="glass-card chart-card">
+          <h3>Fraud by Location</h3>
+          <div class="chart-wrapper">
+            <canvas id="chartLocation"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- Transaction History ---- -->
+      <div class="glass-card table-card" data-aos="fade-up" data-aos-delay="300" style="margin-bottom:60px;">
+        <h3>Transaction History</h3>
+        <table class="txn-table" id="txnTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Sender</th>
+              <th>Receiver</th>
+              <th>Amount</th>
+              <th>Location</th>
+              <th>Prediction</th>
+              <th>Probability</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="txnTableBody">
+            <!-- Populated by charts.js -->
+          </tbody>
+        </table>
+        <div class="empty-state" id="emptyState">
+          <div class="icon">📭</div>
+          <p>No transactions yet. Go to <a href="index.html#simulate">Simulate</a> to create one.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- =============== Footer =============== -->
+  <footer class="footer">
+    <div class="container">
+      <p>&copy; 2026 <strong>UPIGuard</strong> — AI-Powered UPI Fraud Detection System</p>
+    </div>
+  </footer>
+
+  <!-- =============== Scripts =============== -->
+  <!-- AOS -->
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <!-- Dashboard JS -->
+  <script src="charts.js"></script>
+</body>
+</html>
